@@ -20,6 +20,12 @@ public class LocalFSDetectionBase {
         this.localParameterSpace = localParameterSpace;
     }
 
+    /**
+     * We have two options for generating patterns: this preprocessing allows both AAAABC and ABCA.
+     * @param prefix
+     * @param sequenceOrderbyLength
+     * @return
+     */
     protected int prepareSinglePrefixClass(String prefix, HashMapList<Integer, SingleSequenceBase> sequenceOrderbyLength){
         ArrayList<ItemPair> previousSeq = new ArrayList<ItemPair>();
         int startIndex = 0;
@@ -60,6 +66,51 @@ public class LocalFSDetectionBase {
         }
         return maxLengthOfString;
     }
+
+//    /**
+//     * We have two options for generating patterns: this preprocessing allows AAAABC, but ABCA is not allowed
+//     * @param prefix
+//     * @param sequenceOrderbyLength
+//     * @return
+//     */
+//    protected int prepareSinglePrefixClass(String prefix, HashMapList<Integer, SingleSequenceBase> sequenceOrderbyLength){
+//        ArrayList<ItemPair> previousSeq = new ArrayList<ItemPair>();
+//        int startIndex = 0;
+//        // first search for starting index
+//        for (int i = 0; i < inputSequence.getOriginalString().size(); i++) {
+//            if (inputSequence.getOriginalString().get(i).equals(prefix)) {
+//                startIndex = i;
+//                break;
+//            }
+//        }
+//        int maxLengthOfString = -1;
+//        boolean containOtherPrefixes = false;
+//        for (int i = startIndex; i < inputSequence.getOriginalString().size(); i++) {
+//            if (inputSequence.getOriginalString().get(i).equals(prefix) && containOtherPrefixes && previousSeq.size() != 0) {
+//                // save previous sequence to the final sequence array
+//                ArrayList<ItemPair> newSeq = cleanedItemPairs(previousSeq);
+//                int curSeqLength = newSeq.size();
+//                sequenceOrderbyLength.addObject(curSeqLength, new SingleSequenceBase(newSeq));
+//                maxLengthOfString = Math.max(maxLengthOfString, newSeq.size());
+//                previousSeq.clear();
+//                containOtherPrefixes = false;
+//            }
+//            // save the original string and index in originalString/
+//            // originalIndexes and available, if further index is needed, then
+//            // need to find the corresponding index
+//            previousSeq.add(new ItemPair(inputSequence.getOriginalString().get(i), i));
+//            if (!inputSequence.getOriginalString().get(i).equals(prefix))
+//                containOtherPrefixes = true;
+//        }
+//        if (!previousSeq.isEmpty()) {
+//            ArrayList<ItemPair> newSeq = cleanedItemPairs(previousSeq);
+//            int curSeqLength = newSeq.size();
+//            sequenceOrderbyLength.addObject(curSeqLength, new SingleSequenceBase(newSeq));
+//            maxLengthOfString = Math.max(maxLengthOfString, newSeq.size());
+//        }
+//        return maxLengthOfString;
+//    }
+
 
     protected ArrayList<ItemPair> cleanedItemPairs(ArrayList<ItemPair> previousSeq) {
         ArrayList<ItemPair> newSeq = new ArrayList<ItemPair>();

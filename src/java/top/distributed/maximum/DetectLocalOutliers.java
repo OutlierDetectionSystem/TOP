@@ -1,6 +1,5 @@
-package top.distributed.lts;
+package top.distributed.maximum;
 
-import top.utils.SQConfig;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
@@ -17,23 +16,25 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.util.GenericOptionsParser;
+import top.utils.SQConfig;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map.Entry;
 
-public class DetectViolations {
+public class DetectLocalOutliers {
 	public static enum Counters {
-		numViolations;
+		numOutliers, sumLength;
 	}
 
 	public static class DDMapper extends Mapper<LongWritable, Text, IntWritable, Text> {
 
 		public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-			String [] subs = value.toString().split(SQConfig.sepStrForKeyValue);
-			IntWritable key_id = new IntWritable(Integer.parseInt(subs[0]));
+			IntWritable key_id = new IntWritable(0);
 			context.write(key_id, value);
 		}
 	}
@@ -43,11 +44,17 @@ public class DetectViolations {
 	 *
 	 */
 	public static class DDReducer extends Reducer<IntWritable, Text, NullWritable, Text> {
-		private HashSet<String> finalGlobalFreqSeqs;
+
+		private static int thresholdForLocalFSOutliers = 2;
+		private HashMap<String, String> metaDataMapping;
+
 		public void setup(Context context) {
 			/** get configuration from file */
 			Configuration conf = context.getConfiguration();
-			this.finalGlobalFreqSeqs = new HashSet<String>();
+
+			this.thresholdForLocalFSOutliers = conf.getInt(SQConfig.strOutlierThreshold, 2);
+			this.metaDataMapping = new HashMap<String, String>();
+
 			try {
 				URI[] cacheFiles = context.getCacheArchives();
 
@@ -62,14 +69,17 @@ public class DetectViolations {
 					FileStatus[] stats = fs.listStatus(new Path(filename));
 					for (int i = 0; i < stats.length; ++i) {
 						if (!stats[i].isDirectory()) {
-							System.out.println("Reading global frequent sequence from " + stats[i].getPath().toString());
+							System.out.println("Reading meta data from " + stats[i].getPath().toString());
 							FSDataInputStream currentStream;
 							BufferedReader currentReader;
 							currentStream = fs.open(stats[i].getPath());
 							currentReader = new BufferedReader(new InputStreamReader(currentStream));
 							String line;
 							while ((line = currentReader.readLine()) != null) {
-								this.finalGlobalFreqSeqs.add(line);
+								/** parse line */
+								String[] splitsStr = line.split(SQConfig.sepStrForKeyValue);
+//								this.metaDataMapping.put(splitsStr[0], "(" + splitsStr[1] + ")" + splitsStr[2]);
+								this.metaDataMapping.put(splitsStr[0], splitsStr[1]);
 							}
 						}
 					} // end for (int i = 0; i < stats.length; ++i)
@@ -81,27 +91,70 @@ public class DetectViolations {
 		}
 
 		public void reduce(IntWritable key, Iterable<Text> values, Context context) throws IOException {
-			String violationForOneDevice = values.iterator().next().toString();
-			int deviceId = key.get();
-			String[] splitValues = violationForOneDevice.split(SQConfig.sepStrForKeyValue);
-			String deviceInfo = splitValues[1];
-			String outputStr = "";
-			for(int i = 2; i< splitValues.length; i++){
-				String [] subs = splitValues[i].split(SQConfig.sepSplitForIDDist);
-				if(finalGlobalFreqSeqs.contains(subs[1]) && (! finalGlobalFreqSeqs.contains(subs[0]))){
-					outputStr += splitValues[i] + SQConfig.sepStrForKeyValue;
-					context.getCounter(Counters.numViolations).increment(1);
+			// collect data
+			HashMap<Integer, String[]> allFreqSeqs = new HashMap<Integer, String[]>();
+			HashMap<Integer, String> alldevices = new HashMap<Integer, String>();
+			HashMap<String, Integer> gbFreqSeqs = new HashMap<String, Integer>();
+
+			for (Text oneValue : values) {
+				String line = oneValue.toString();
+				String[] splitValues = line.split(SQConfig.sepStrForKeyValue);
+				if (splitValues.length == 2)
+					continue;
+				int seqId = Integer.parseInt(splitValues[0]);
+				String deviceId = splitValues[1];
+				String inputString = splitValues[2];
+				alldevices.put(seqId, deviceId);
+				String[] tempFreqSeqOneStr = inputString.split(SQConfig.sepSplitForIDDist);
+				allFreqSeqs.put(seqId, tempFreqSeqOneStr);
+				for (String str : tempFreqSeqOneStr) {
+					if (gbFreqSeqs.containsKey(str))
+						gbFreqSeqs.put(str, gbFreqSeqs.get(str) + 1);
+					else
+						gbFreqSeqs.put(str, 1);
+				}
+
+			} // end collection data
+
+			HashSet<String> finalGBFreqSeq = new HashSet<String>();
+			for (String str : gbFreqSeqs.keySet()) {
+				if (gbFreqSeqs.get(str) >= this.thresholdForLocalFSOutliers) {
+					finalGBFreqSeq.add(str);
 				}
 			}
-			if(outputStr.length() > 0) {
+
+			// detect outliers by traversing the dataset again
+			for (Entry<Integer, String[]> freqSeqOneStr : allFreqSeqs.entrySet()) {
+				HashSet<String> tempOutliers = new HashSet<String>();
+				for (String curStr : freqSeqOneStr.getValue()) {
+					if (!finalGBFreqSeq.contains(curStr))
+						tempOutliers.add(curStr);
+				}
 				try {
-					context.write(NullWritable.get(), new Text(deviceId + SQConfig.sepStrForKeyValue +
-							deviceInfo + SQConfig.sepStrForKeyValue + outputStr));
+					if (tempOutliers.size() != 0) {
+						context.getCounter(Counters.numOutliers).increment(tempOutliers.size());
+						context.write(NullWritable.get(), new Text("Seq id: " + freqSeqOneStr.getKey() + "\n"
+								+ "Device id: " + alldevices.get(freqSeqOneStr.getKey()) + "\n"));
+						for (String curStr : tempOutliers) {
+							String outputMeta = "";
+							String[] subStr = curStr.split(SQConfig.sepStrForRecord);
+							context.getCounter(Counters.sumLength).increment(subStr.length);
+							for (String tempStr : subStr) {
+								outputMeta += metaDataMapping.get(tempStr) + "\t";
+								// System.out.println(metaDataMapping.get(tempStr));
+							}
+
+							context.write(NullWritable.get(), new Text(curStr + "\n" + outputMeta + "\n"));
+
+						}
+						context.write(NullWritable.get(), new Text("\n"));
+					}
 				} catch (InterruptedException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}
+
 		} // end reduce function
 
 	} // end reduce class
@@ -112,48 +165,47 @@ public class DetectViolations {
 		conf.addResource(new Path("/usr/local/Cellar/hadoop/etc/hadoop/hdfs-site.xml"));
 		new GenericOptionsParser(conf, args).getRemainingArgs();
 		/** set job parameter */
-		Job job = Job.getInstance(conf, "Detect Violations");
+		Job job = Job.getInstance(conf, "Detect Local Outliers");
 
-		job.setJarByClass(DetectViolations.class);
+		job.setJarByClass(DetectLocalOutliers.class);
 		job.setMapperClass(DDMapper.class);
 		job.setReducerClass(DDReducer.class);
 		job.setMapOutputKeyClass(IntWritable.class);
 		job.setMapOutputValueClass(Text.class);
 		job.setOutputKeyClass(NullWritable.class);
 		job.setOutputValueClass(Text.class);
-		job.setNumReduceTasks(conf.getInt(SQConfig.strNumReducers,100));
+		job.setNumReduceTasks(1);
 
 		String strFSName = conf.get("fs.default.name");
-		String inputPath = conf.get(SQConfig.strLocalViolationOutput) + "-" + conf.getInt(SQConfig.strLocalSupport, 10)
+		String inputPath = conf.get(SQConfig.strLocalFSOutputSTL) + "-" + conf.getInt(SQConfig.strLocalSupport, 10)
 				+ "-" + conf.getInt(SQConfig.strEventGap, 1) + "-" + conf.getInt(SQConfig.strSeqGap, 1);
 		FileInputFormat.addInputPath(job, new Path(inputPath));
 		FileSystem fs = FileSystem.get(conf);
-		String outputPath = conf.get(SQConfig.strFinalViolationOutput) + "-" + conf.getInt(SQConfig.strLocalSupport, 10)
+		String outputPath = conf.get(SQConfig.strLocalOutlierOutput) + "-" + conf.getInt(SQConfig.strLocalSupport, 10)
 				+ "-" + conf.getInt(SQConfig.strGlobalSupport, 10) + "-" + conf.getInt(SQConfig.strEventGap, 1)
 				+ "-" + conf.getInt(SQConfig.strSeqGap, 1);
 		fs.delete(new Path(outputPath), true);
 		FileOutputFormat.setOutputPath(job, new Path(outputPath));
-		job.addCacheArchive(new URI(strFSName + conf.get(SQConfig.strGlobalFSOutputForViolation) + "-" + conf.getInt(SQConfig.strLocalSupport, 10)
-		+ "-" + conf.getInt(SQConfig.strEventGap, 1) + "-" + conf.getInt(SQConfig.strSeqGap, 1)));
+		job.addCacheArchive(new URI(strFSName + conf.get(SQConfig.strMetaDataInput)));
 
 		/** print job parameter */
 		System.err.println("local support: " + conf.getInt(SQConfig.strLocalSupport, 10));
 		System.err.println("lts support: " + conf.getInt(SQConfig.strGlobalSupport, 10));
 		System.err.println("event gap: " + conf.getInt(SQConfig.strEventGap, 1));
 		System.err.println("sequence gap: " + conf.getInt(SQConfig.strSeqGap, 10));
-		System.err.println("Violation local support" + conf.getInt(SQConfig.strViolationLocalSupport, 10));
 		long begin = System.currentTimeMillis();
 		job.waitForCompletion(true);
 		long end = System.currentTimeMillis();
 		long second = (end - begin) / 1000;
 		System.err.println(job.getJobName() + " takes " + second + " seconds");
 		org.apache.hadoop.mapreduce.Counters cn=job.getCounters();
-		Counter c1 = cn.findCounter(Counters.numViolations);
-		System.out.println(c1.getValue());
+		Counter c1 = cn.findCounter(Counters.numOutliers);
+		Counter c2 = cn.findCounter(Counters.sumLength);
+		System.out.println(c1.getValue() + "\t" + c2.getValue()*1.0/c1.getValue());
 	}
 
 	public static void main(String[] args) throws Exception {
-		DetectViolations detectViolations = new DetectViolations();
-		detectViolations.run(args);
+		DetectLocalOutliers generateLocalFS = new DetectLocalOutliers();
+		generateLocalFS.run(args);
 	}
 }

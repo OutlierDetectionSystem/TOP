@@ -1,6 +1,7 @@
 package top.core.maximum.mining;
 
 import top.core.datastructure.FreqSequence;
+import top.parameterspace.LocalParameterSpace;
 
 import java.util.*;
 
@@ -94,15 +95,15 @@ public class SingleSequenceMining {
 	 * short algorithm)
 	 * 
 	 * @param indexOfInput
-	 * @param cleanInputString
-	 * @param cleanIndexesForString
 	 * @return
 	 */
 	public Set<String> findFreqSeqInOneString(int indexOfInput, HashSet<String> globalFrequentElements) {
 		// first compute frequent sequences
 		long start = System.currentTimeMillis();
-		PrefixSpanTool pst = new PrefixSpanTool(inputString, minSupport, this.itemGap, this.seqGap);
+		LocalParameterSpace localParameterSpace = new LocalParameterSpace(minSupport, itemGap, seqGap);
+		PrefixSpanToolWithFirstReplicate pst = new PrefixSpanToolWithFirstReplicate(inputString, localParameterSpace);
 		totalFrequentSeqs = pst.prefixSpanCalculate(globalFrequentElements);
+
 		// then sort by length of the string
 		Collections.sort(totalFrequentSeqs);
 		// init support number and a list of boolean for each sequence
@@ -126,7 +127,7 @@ public class SingleSequenceMining {
 			if(finalSeq.length() > 0)
 				finalSeq = finalSeq.substring(0, finalSeq.length()-1);
 			finalReturnFS.add(finalSeq);
-			System.out.println(finalSeq);
+			System.out.println(finalSeq + "\t" + this.FreqSeqsInMap.get(curFS).getItemPairList().get(0).index.size());
 		}
 		return finalReturnFS;
 //		return FreqSeqsInMap.keySet();

@@ -1,6 +1,5 @@
-package top.distributed.lts;
+package top.distributed.maximum;
 
-import top.utils.SQConfig;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
@@ -17,11 +16,13 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.util.GenericOptionsParser;
+import top.utils.SQConfig;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.HashSet;
 
 public class DetectViolations {
@@ -32,7 +33,7 @@ public class DetectViolations {
 	public static class DDMapper extends Mapper<LongWritable, Text, IntWritable, Text> {
 
 		public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-			String [] subs = value.toString().split(SQConfig.sepStrForKeyValue);
+			String[] subs = value.toString().split(SQConfig.sepStrForKeyValue);
 			IntWritable key_id = new IntWritable(Integer.parseInt(subs[0]));
 			context.write(key_id, value);
 		}
@@ -44,6 +45,7 @@ public class DetectViolations {
 	 */
 	public static class DDReducer extends Reducer<IntWritable, Text, NullWritable, Text> {
 		private HashSet<String> finalGlobalFreqSeqs;
+
 		public void setup(Context context) {
 			/** get configuration from file */
 			Configuration conf = context.getConfiguration();
@@ -62,7 +64,8 @@ public class DetectViolations {
 					FileStatus[] stats = fs.listStatus(new Path(filename));
 					for (int i = 0; i < stats.length; ++i) {
 						if (!stats[i].isDirectory()) {
-							System.out.println("Reading global frequent sequence from " + stats[i].getPath().toString());
+							System.out
+									.println("Reading global frequent sequence from " + stats[i].getPath().toString());
 							FSDataInputStream currentStream;
 							BufferedReader currentReader;
 							currentStream = fs.open(stats[i].getPath());
@@ -86,17 +89,34 @@ public class DetectViolations {
 			String[] splitValues = violationForOneDevice.split(SQConfig.sepStrForKeyValue);
 			String deviceInfo = splitValues[1];
 			String outputStr = "";
-			for(int i = 2; i< splitValues.length; i++){
-				String [] subs = splitValues[i].split(SQConfig.sepSplitForIDDist);
-				if(finalGlobalFreqSeqs.contains(subs[1]) && (! finalGlobalFreqSeqs.contains(subs[0]))){
-					outputStr += splitValues[i] + SQConfig.sepStrForKeyValue;
-					context.getCounter(Counters.numViolations).increment(1);
+
+			for (int i = 2; i < splitValues.length; i++) {
+				String[] splitViolationsThisDevice = splitValues[i].split(SQConfig.sepSplitForIDDist);
+				String violationSeqWithOccurrences = splitViolationsThisDevice[0];
+				int beginOccurrenceIndex = violationSeqWithOccurrences.indexOf("[");
+				String violationSeq = violationSeqWithOccurrences.substring(0, beginOccurrenceIndex);
+
+				if (finalGlobalFreqSeqs.contains(violationSeq)){
+					continue;
+				}
+				ArrayList<String> remainViolatedSeq = new ArrayList<String>();
+				for (int j = 1; j < splitViolationsThisDevice.length; j++) {
+					if (finalGlobalFreqSeqs.contains(splitViolationsThisDevice[j])) {
+						remainViolatedSeq.add(splitViolationsThisDevice[j]);
+					}
+				}
+				if(remainViolatedSeq.size() > 0){
+					outputStr += violationSeqWithOccurrences;
+					for(String remainViolation: remainViolatedSeq)
+						outputStr += "|" + remainViolation;
+					outputStr += SQConfig.sepStrForKeyValue;
+					context.getCounter(Counters.numViolations).increment(remainViolatedSeq.size());
 				}
 			}
-			if(outputStr.length() > 0) {
+			if (outputStr.length() > 0) {
 				try {
-					context.write(NullWritable.get(), new Text(deviceId + SQConfig.sepStrForKeyValue +
-							deviceInfo + SQConfig.sepStrForKeyValue + outputStr));
+					context.write(NullWritable.get(), new Text(deviceId + SQConfig.sepStrForKeyValue + deviceInfo
+							+ SQConfig.sepStrForKeyValue + outputStr));
 				} catch (InterruptedException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -121,7 +141,7 @@ public class DetectViolations {
 		job.setMapOutputValueClass(Text.class);
 		job.setOutputKeyClass(NullWritable.class);
 		job.setOutputValueClass(Text.class);
-		job.setNumReduceTasks(conf.getInt(SQConfig.strNumReducers,100));
+		job.setNumReduceTasks(conf.getInt(SQConfig.strNumReducers, 100));
 
 		String strFSName = conf.get("fs.default.name");
 		String inputPath = conf.get(SQConfig.strLocalViolationOutput) + "-" + conf.getInt(SQConfig.strLocalSupport, 10)
@@ -129,12 +149,13 @@ public class DetectViolations {
 		FileInputFormat.addInputPath(job, new Path(inputPath));
 		FileSystem fs = FileSystem.get(conf);
 		String outputPath = conf.get(SQConfig.strFinalViolationOutput) + "-" + conf.getInt(SQConfig.strLocalSupport, 10)
-				+ "-" + conf.getInt(SQConfig.strGlobalSupport, 10) + "-" + conf.getInt(SQConfig.strEventGap, 1)
-				+ "-" + conf.getInt(SQConfig.strSeqGap, 1);
+				+ "-" + conf.getInt(SQConfig.strGlobalSupport, 10) + "-" + conf.getInt(SQConfig.strEventGap, 1) + "-"
+				+ conf.getInt(SQConfig.strSeqGap, 1);
 		fs.delete(new Path(outputPath), true);
 		FileOutputFormat.setOutputPath(job, new Path(outputPath));
-		job.addCacheArchive(new URI(strFSName + conf.get(SQConfig.strGlobalFSOutputForViolation) + "-" + conf.getInt(SQConfig.strLocalSupport, 10)
-		+ "-" + conf.getInt(SQConfig.strEventGap, 1) + "-" + conf.getInt(SQConfig.strSeqGap, 1)));
+		job.addCacheArchive(new URI(strFSName + conf.get(SQConfig.strGlobalFSOutputForViolation) + "-"
+				+ conf.getInt(SQConfig.strLocalSupport, 10) + "-" + conf.getInt(SQConfig.strEventGap, 1) + "-"
+				+ conf.getInt(SQConfig.strSeqGap, 1)));
 
 		/** print job parameter */
 		System.err.println("local support: " + conf.getInt(SQConfig.strLocalSupport, 10));
@@ -147,7 +168,7 @@ public class DetectViolations {
 		long end = System.currentTimeMillis();
 		long second = (end - begin) / 1000;
 		System.err.println(job.getJobName() + " takes " + second + " seconds");
-		org.apache.hadoop.mapreduce.Counters cn=job.getCounters();
+		org.apache.hadoop.mapreduce.Counters cn = job.getCounters();
 		Counter c1 = cn.findCounter(Counters.numViolations);
 		System.out.println(c1.getValue());
 	}

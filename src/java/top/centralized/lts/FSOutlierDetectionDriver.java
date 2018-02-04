@@ -132,21 +132,22 @@ public class FSOutlierDetectionDriver {
     }
 
     public static void main(String [] args){
-        String inputPath = "data/inputData/vlc-data.txt";
+        String inputPath = "data/inputData/CT_data_small_withId.csv";
 //        String inputPath = "extracted_1000devices_noId.csv";
         ArrayList<String> inputStringArray = new ArrayList<String>();
         HashMap<Integer, String> deviceIdMap = new HashMap<Integer, String>();
         FileUtile.readInDatasetWithDeviceIds(inputPath, inputStringArray, deviceIdMap);
-        String metaDataFile = "data/inputData/vlc-dict.txt";
+        String metaDataFile = "data/inputData/CT_data_meta";
         HashMap<String, String> metaDataMapping = FileUtile.readInMetaDataToMemory(FileUtile.readInDataset(metaDataFile));
 
         InputFile inputInfo = new InputFile(inputStringArray, deviceIdMap, metaDataMapping, true);
-        int localSupport = 5;
+        int localSupport = 10;
         int globalSupport = 10;
-        int seqGap = 6;
+        int seqGap = 10;
         int eventGap = 0;
+        // (int) Math.floor(localSupport/2)
         GlobalParameterSpace globalParameterSpace = new GlobalParameterSpace(localSupport, eventGap, seqGap, globalSupport,
-                (int) Math.floor(localSupport/2), 2);
+              2 , 2);
         FSOutlierDetectionDriver driver = new FSOutlierDetectionDriver(inputInfo, globalParameterSpace);
         String outputFolder = "results-" + localSupport + "-" + globalSupport+ "-" + seqGap + "-"+ eventGap;
         new File(outputFolder).delete();

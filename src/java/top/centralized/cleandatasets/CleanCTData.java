@@ -114,10 +114,12 @@ public class CleanCTData {
                 StringBuilder deviceInStr = new StringBuilder();
                 int maxS = 0;
                 deviceInStr.append(deviceId + "\t" + curDevice.getKey()+ "\t");
+//                deviceInStr.append(curDevice.getKey()+ "\t");
                 this.sortByDate(curDevice.getValue());
                 for(SingleItem s: curDevice.getValue()){
 //                    deviceInStr.append(s.getItem() + "|" + formatter.format(s.getDate()) + ",");
-                    deviceInStr.append(s.getItem() + "|" + s.getDate().getTime() + ",");
+//                    deviceInStr.append(s.getItem() + "|" + s.getDate().getTime() + ",");
+                    deviceInStr.append(s.getItem() + ",");
                     if(s.getItem().equals("S")){
                         maxS++;
                     }
@@ -147,9 +149,9 @@ public class CleanCTData {
         this.outputToFile(outputFile);
     }
     public static void main(String [] args){
-        String dicFile = "data/inputData/ct-dict.txt";
+        String dicFile = "data/inputData/ct-dict.csv";
         String inputFile = "data/inputData/CT_data.csv";
-        String outputFile = "data/inputData/CT_data_formatted.csv";
+        String outputFile = "data/inputData/CT_data_formatted_noTS.csv";
         CleanCTData cleanDataset = new CleanCTData();
         cleanDataset.cleanCTData(dicFile, inputFile, outputFile);
     }

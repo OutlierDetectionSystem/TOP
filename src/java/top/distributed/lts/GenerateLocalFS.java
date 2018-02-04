@@ -129,12 +129,12 @@ public class GenerateLocalFS {
 				IntWritable outputKey = new IntWritable();
 				Text outputValue = new Text();
 				String outputResult = deviceId + SQConfig.sepStrForKeyValue;
-//				for (String str : tempLocalFS.keySet()) {
-//					outputResult += str + SQConfig.sepStrForIDDist;
-//					String[] subs = str.split(SQConfig.sepStrForRecord);
-//					context.getCounter(Counters.fsNum).increment(1);
-//					context.getCounter(Counters.fslengthSum).increment(subs.length);
-//				}
+				for (String str : tempLocalFS.keySet()) {
+					outputResult += str + SQConfig.sepStrForIDDist;
+					String[] subs = str.split(SQConfig.sepStrForRecord);
+					context.getCounter(Counters.fsNum).increment(1);
+					context.getCounter(Counters.fslengthSum).increment(subs.length);
+				}
 				if (outputResult.length() > 0)
 					outputResult = outputResult.substring(0, outputResult.length() - 1);
 				outputValue.set(outputResult);

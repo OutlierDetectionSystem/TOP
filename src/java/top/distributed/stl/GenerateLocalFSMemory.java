@@ -114,7 +114,7 @@ public class GenerateLocalFSMemory {
 
 		public void reduce(IntWritable key, Iterable<Text> values, Context context) throws IOException {
 			// collect data
-			try {
+//			try {
 				for (Text oneValue : values) {
 					maxUsedMemoryPerDevice = 0;
 					String line = oneValue.toString();
@@ -132,29 +132,29 @@ public class GenerateLocalFSMemory {
 					maxUsedMemory = Math.max(maxUsedMemory, maxUsedMemoryPerDevice);
 					if (maxUsedMemoryPerDevice > 0)
 						context.getCounter(Counters.countMemory).increment(1);
-					long timeCost = (System.currentTimeMillis() - start);
+					long timeCost = (System.currentTimeMillis() - start)/1000;
 					context.getCounter(Counters.fsCompTime).increment(timeCost);
 
 				} // end collection data
-			} catch (Error e) {
-				e.printStackTrace();
-				System.out.println("Catch Run out of memory exception " + maxUsedMemoryPerDevice + "," + maxUsedMemory
-						+ "," + Toolbox.getMaxMemory());
-				context.getCounter(Counters.averageMemoryUse).increment(maxUsedMemoryPerDevice);
-				context.getCounter(Counters.outOfMemoryCount).increment(1);
-				maxUsedMemory = Math.max(maxUsedMemory, maxUsedMemoryPerDevice);
-				if (maxUsedMemoryPerDevice > 0)
-					context.getCounter(Counters.countMemory).increment(1);
-			}catch (Exception e){
-				e.printStackTrace();
-				System.out.println("Catch Run out of memory exception " + maxUsedMemoryPerDevice + "," + maxUsedMemory
-						+ "," + Toolbox.getMaxMemory());
-				context.getCounter(Counters.averageMemoryUse).increment(maxUsedMemoryPerDevice);
-				context.getCounter(Counters.outOfMemoryCount).increment(1);
-				maxUsedMemory = Math.max(maxUsedMemory, maxUsedMemoryPerDevice);
-				if (maxUsedMemoryPerDevice > 0)
-					context.getCounter(Counters.countMemory).increment(1);
-			}
+//			} catch (Error e) {
+//				e.printStackTrace();
+//				System.out.println("Catch Run out of memory exception " + maxUsedMemoryPerDevice + "," + maxUsedMemory
+//						+ "," + Toolbox.getMaxMemory());
+//				context.getCounter(Counters.averageMemoryUse).increment(maxUsedMemoryPerDevice);
+//				context.getCounter(Counters.outOfMemoryCount).increment(1);
+//				maxUsedMemory = Math.max(maxUsedMemory, maxUsedMemoryPerDevice);
+//				if (maxUsedMemoryPerDevice > 0)
+//					context.getCounter(Counters.countMemory).increment(1);
+//			}catch (Exception e){
+//				e.printStackTrace();
+//				System.out.println("Catch Run out of memory exception " + maxUsedMemoryPerDevice + "," + maxUsedMemory
+//						+ "," + Toolbox.getMaxMemory());
+//				context.getCounter(Counters.averageMemoryUse).increment(maxUsedMemoryPerDevice);
+//				context.getCounter(Counters.outOfMemoryCount).increment(1);
+//				maxUsedMemory = Math.max(maxUsedMemory, maxUsedMemoryPerDevice);
+//				if (maxUsedMemoryPerDevice > 0)
+//					context.getCounter(Counters.countMemory).increment(1);
+//			}
 		} // end reduce function
 
 		@Override
@@ -214,8 +214,8 @@ public class GenerateLocalFSMemory {
 		System.out.println(conf.getInt(SQConfig.strSeqGap, 10) + "\t" + conf.getInt(SQConfig.strEventGap, 1) + "\t"
 				+ conf.getInt(SQConfig.strLocalSupport, 10) + "\t" + conf.getInt(SQConfig.strGlobalSupport, 10) + "\t"
 				+ c1.getValue() + "\t" + c2.getValue() + "\t" + c1.getValue() * 1.0 / c2.getValue() + "\t"
-				+ c3.getValue() + "\t" + Toolbox.getMaxMemory() + "\t" + c4.getValue() * 1.0 / 1000 + "\t" + c5.getValue() * 1.0 / 1000 + "\t"
-				+ (c4.getValue() - c5.getValue()) * 1.0 / 1000 + "\t" + second);
+				+ c3.getValue() + "\t" + Toolbox.getMaxMemory() + "\t" + c4.getValue()  + "\t" + c5.getValue() + "\t"
+				+ (c4.getValue() - c5.getValue()) + "\t" + second);
 	}
 
 	public static void main(String[] args) throws Exception {

@@ -5,6 +5,7 @@ import top.utils.ConfigBasicStatistics;
 
 import java.io.*;
 import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -14,12 +15,14 @@ import java.util.Map;
  * Created by yizhouyan on 9/27/17.
  */
 public class CountSyncPerDay {
-    private int support = 17;
+    private int support = 50;
     private long timeInterval = 86400000; // one day (24 hours)
     private String event = "S";
     private HashMap<String, Integer> maxSyncPerDay = new HashMap<>();
+    private HashMap<String, Long> maxSyncDate = new HashMap<>();
+    private SimpleDateFormat formatter =  new SimpleDateFormat("yyyy-MM-dd' 'HH:mm:ss.SSS");
 
-    public int countMaxEventOccurrence(String inputString){
+    public void countMaxEventOccurrence(String deviceStr, String inputString){
         String[] splitInputs = inputString.split(ConfigBasicStatistics.sepStrForRecord);
         String[] splitInputValues = new String[splitInputs.length];
         long[] splitInputTimeStamps = new long[splitInputs.length];
@@ -30,6 +33,7 @@ public class CountSyncPerDay {
             splitInputTimeStamps[i] = Long.parseLong(subs[1]);
         }
         int maxCountEvent = 0;
+        long dateForMax = 0;
         for (int i = 0; i< splitInputs.length; i++){
             if(splitInputValues[i].equals(event)){
                 // extend 24 hours and count events
@@ -37,13 +41,20 @@ public class CountSyncPerDay {
                 for(int j = i+1; j< splitInputs.length; j++){
                     if(splitInputTimeStamps[j]-splitInputTimeStamps[i] > timeInterval)
                         break;
-                    if(splitInputValues[j].equals(event))
+                    if(splitInputValues[j].equals(event)) {
                         countEventNum++;
+                    }
                 }
-                maxCountEvent = Math.max(maxCountEvent, countEventNum);
+                if(countEventNum > maxCountEvent){
+                    maxCountEvent = countEventNum;
+                    dateForMax = splitInputTimeStamps[i];
+                }
             }
         }
-        return maxCountEvent;
+        if(maxCountEvent > support){
+            maxSyncPerDay.put(deviceStr, maxCountEvent);
+            maxSyncDate.put(deviceStr, dateForMax);
+        }
     }
 
     public void readInAndProcess(String inputFile){
@@ -54,10 +65,7 @@ public class CountSyncPerDay {
             br.readLine();
             while ((str = br.readLine()) != null) {
                 String [] splits = str.split("\t");
-                int maxCountEvent = countMaxEventOccurrence(splits[2]);
-                if(maxCountEvent > support){
-                    maxSyncPerDay.put(splits[1], maxCountEvent);
-                }
+                countMaxEventOccurrence(splits[1], splits[2]);
                 count++;
                 if(count % 10000 == 0){
                     System.out.println(count + " finished!");
@@ -75,7 +83,10 @@ public class CountSyncPerDay {
         try {
             BufferedWriter bw = new BufferedWriter(new FileWriter(new File(outputFile)));
             for(Map.Entry<String,Integer> curDevice: this.maxSyncPerDay.entrySet()){
-                bw.write(curDevice.getKey() + "," + curDevice.getValue());
+                Date date=new Date(maxSyncDate.get(curDevice.getKey()));
+                String dateText = formatter.format(date);
+                // "," + maxSyncDate.get(curDevice.getKey()) +
+                bw.write(curDevice.getKey() + "," + curDevice.getValue() + "," + dateText);
                 bw.newLine();
             }
             bw.close();
@@ -93,5 +104,6 @@ public class CountSyncPerDay {
         String outputFile = "countSynSupport.csv";
         CountSyncPerDay cs = new CountSyncPerDay();
         cs.CountSyncPerDay(inputFile, outputFile);
+        System.out.println(System.currentTimeMillis());
     }
 }

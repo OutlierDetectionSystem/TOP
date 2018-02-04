@@ -1,4 +1,4 @@
-package top.core.lts.local.base;
+package top.core.maximum.mining.violations;
 
 import top.core.datastructure.ItemPair;
 import top.core.lts.local.datamodel.HashMapSet;
@@ -15,14 +15,14 @@ import java.util.HashSet;
 /**
  * Created by yizhouyan on 7/8/17.
  */
-public class SingleSequenceBase implements Comparable {
+public class SingleSequence implements Comparable {
     // a sequence is an array of itempairs
     protected ArrayList<ItemPair> itemPairList;
     protected HashMap<String, ArrayList<Integer>> subSeqs;
-    public SingleSequenceBase(ArrayList<ItemPair> itemPairList) {
+    public SingleSequence(ArrayList<ItemPair> itemPairList) {
         this.itemPairList = itemPairList;
     }
-    public SingleSequenceBase() {
+    public SingleSequence() {
         itemPairList = new ArrayList<ItemPair>();
     }
 
@@ -239,41 +239,7 @@ public class SingleSequenceBase implements Comparable {
                     }
                 } // end for
             } // end if (truncatedItemPairList.size() >= curLength)
-        }else {
-            ArrayList<ItemPair> truncatedItemPairList;
-            truncatedItemPairList = truncateItemPairListWithTokenFrequency(frequentTokens,
-                    inputSequence, localParameterSpace.getItemGap());
-            if (truncatedItemPairList.size() >= curLength) {
-                ArrayList<ArrayList<Integer>> finalRes = generateSubsHelper(truncatedItemPairList.size() - 1,
-                        curLength - 1, localParameterSpace.getItemGap(), truncatedItemPairList);
-                // traverse each possible combination, check those constraints
-                for (ArrayList<Integer> finalTemp : finalRes) {
-                    ArrayList<Integer> newIndexes = new ArrayList<Integer>();
-                    newIndexes.add(truncatedItemPairList.get(0).getIndex());
-                    String newStr = truncatedItemPairList.get(0).getItem();
-                    // if there is anything inside available, set to true;
-                    boolean available = inputSequence.getAvailable().get(truncatedItemPairList.get(0).getIndex());
-                    int previousIndex = inputSequence.getOriginalIndexes().get(truncatedItemPairList.get(0).getIndex());
-                    for (Integer curPos : finalTemp) {
-                        int tempIndex = inputSequence.getOriginalIndexes().get(truncatedItemPairList.get(curPos).getIndex());
-                        if (tempIndex - previousIndex > localParameterSpace.getItemGap() + 1) {
-                            available = false;
-                            break;
-                        }
-                        previousIndex = tempIndex;
-                        newIndexes.add(truncatedItemPairList.get(curPos).getIndex());
-                        newStr += "," + truncatedItemPairList.get(curPos).getItem();
-                        if (inputSequence.getAvailable().get(truncatedItemPairList.get(curPos).getIndex()))
-                            available = true;
-                        // System.out.print(curPos + ",");
-                    }
-                    if (available & (!usedByPreviousSeqs(newStr, newIndexes, usedIndexBySubs))) {
-                        this.addToCurrentSubSequences(newStr, newIndexes);
-                        possibleFS.add(newStr);
-                    }
-                } // end for
-            } // end if (truncatedItemPairList.size() >= curLength)
-        } // end else
+        }
         addToPossibleFSWithFreq(possibleFSWithFreq, possibleFS);
     } // end
     // function
@@ -314,30 +280,6 @@ public class SingleSequenceBase implements Comparable {
             } else
                 possibleFSWithFreq.put(tempCurFS, 1);
         }
-    }
-
-    public ArrayList<ItemPair> truncateItemPairListWithTokenFrequency(HashSet<String> frequentTokens,
-                                                                      InputSequence inputSequence, int itemGap) {
-        ArrayList<ItemPair> truncatedItemPairList = new ArrayList<ItemPair>();
-        truncatedItemPairList.add(this.itemPairList.get(0));
-        boolean available = inputSequence.getAvailable().get(itemPairList.get(0).getIndex());
-        int previousIndex = inputSequence.getOriginalIndexes().get(itemPairList.get(0).getIndex());
-        for (int i = 1; i < this.itemPairList.size(); i++) {
-            ItemPair curItemPair = this.itemPairList.get(i);
-            if (!frequentTokens.contains(curItemPair.getItem()))
-                continue;
-            int tempIndex = inputSequence.getOriginalIndexes().get(curItemPair.getIndex());
-            if (tempIndex - previousIndex > itemGap + 1) {
-                break;
-            }
-            previousIndex = tempIndex;
-            truncatedItemPairList.add(curItemPair);
-            if (inputSequence.getAvailable().get(curItemPair.getIndex()))
-                available = true;
-        }
-        if (!available)
-            return new ArrayList<ItemPair>();
-        return truncatedItemPairList;
     }
 
     public void addToCurrentSubSequences(String newStr, ArrayList<Integer> newIndexes) {
@@ -421,7 +363,7 @@ public class SingleSequenceBase implements Comparable {
 
     @Override
     public int compareTo(Object o) {
-        SingleSequenceBase other  = (SingleSequenceBase) o;
+        SingleSequence other  = (SingleSequence) o;
         if(this.getItemPairList().get(0).getIndex() > other.getItemPairList().get(0).getIndex())
             return 1;
         else if(this.getItemPairList().get(0).getIndex() < other.getItemPairList().get(0).getIndex())

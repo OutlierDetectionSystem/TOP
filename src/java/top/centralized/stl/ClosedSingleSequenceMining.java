@@ -1,37 +1,25 @@
 package top.centralized.stl;
 
+import top.core.datastructure.FreqSequence;
+import top.core.datastructure.ResItemArrayPair;
 import top.core.stl.local.PrefixSpanToolWithFirstReplicate;
 import top.parameterspace.LocalParameterSpace;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
-import top.core.datastructure.FreqSequence;
-import top.core.datastructure.ResItemArrayPair;
-
-public class SingleSequenceMining {
+public class ClosedSingleSequenceMining {
 	private String inputString;
 	LocalParameterSpace localParameterSpace;
 
 	private ArrayList<FreqSequence> totalFrequentSeqs;
-	private HashMap<String, FreqSequence> FreqSeqsInMap;
-	private boolean[] available;
+	private HashMap<ArrayList<String>, FreqSequence> FreqSeqsInMap;
 
-	public SingleSequenceMining(String inputString, LocalParameterSpace localParameterSpace) {
+	public ClosedSingleSequenceMining(String inputString, LocalParameterSpace localParameterSpace) {
 		this.setInputString(inputString);
 		this.localParameterSpace = localParameterSpace;
 		this.totalFrequentSeqs = new ArrayList<FreqSequence>();
-		this.FreqSeqsInMap = new HashMap<String, FreqSequence>();
-		this.available = new boolean[this.inputString.split(",").length];
-		for (int i = 0; i < this.available.length; i++) {
-			available[i] = false;
-		}
+		this.FreqSeqsInMap = new HashMap<ArrayList<String>, FreqSequence>();
 	}
-
 
 	public void updateSequenceLongToShort() {
 		if (totalFrequentSeqs.size() == 0)
@@ -40,40 +28,20 @@ public class SingleSequenceMining {
 		int currentIndexInFS = 0;
 		while (currentLength > 1 && currentIndexInFS < this.totalFrequentSeqs.size()) {
 			// deal with all fs with size = currentLength;
-			HashSet<Integer> tempUnavailableIndexes = new HashSet<Integer>();
-
+			HashMap<ArrayList<String>, FreqSequence> tempFreqSeqInMap = new HashMap<ArrayList<String>, FreqSequence>();
 			while (currentIndexInFS < this.totalFrequentSeqs.size()
 					&& this.totalFrequentSeqs.get(currentIndexInFS).getItemNumInFreqSeq() == currentLength) {
-				// check each index to see its new support value, if support >=
-				// minSupport
 				FreqSequence curFSObj = this.totalFrequentSeqs.get(currentIndexInFS);
-				ArrayList<ResItemArrayPair> indexesForCurFS = curFSObj.getItemPairList();
-				int curFinalSupport = 0;
-				int curSupportTotal = indexesForCurFS.get(0).index.size();
-				for (int i = 0; i < curSupportTotal; i++) {
-					for (int j = 0; j < indexesForCurFS.size(); j++) {
-						if (this.available[indexesForCurFS.get(j).index.get(i)]) {
-							curFinalSupport++;
-							break;
-						}
-					}
-				}
-				// add to results and add all indexes into tempUnavailable
-				if (curFinalSupport >= localParameterSpace.getMinLocalSupport()) {
-					this.FreqSeqsInMap.put(curFSObj.getFreqSeqInString(), curFSObj);
-					curFSObj.setSupportNum(curFinalSupport);
-					for (ResItemArrayPair resultPair : indexesForCurFS) {
-						for (Integer deleteIndex : resultPair.index) {
-							tempUnavailableIndexes.add(deleteIndex);
-						}
-					}
+				curFSObj.generateSupportNum();
+				ArrayList<String> curFreqSeq = new ArrayList<String>(Arrays.asList(curFSObj.getFreqSeqInString().split(",")));
+
+				if(!this.isSubStringWithIdenticalSupport(this.FreqSeqsInMap.keySet(), curFreqSeq, curFSObj)){
+					tempFreqSeqInMap.put(curFreqSeq, curFSObj);
 				}
 				currentIndexInFS++;
 			}
 
-			for (Integer ii : tempUnavailableIndexes) {
-				this.available[ii] = false;
-			}
+			this.FreqSeqsInMap.putAll(tempFreqSeqInMap);
 			if (currentIndexInFS < this.totalFrequentSeqs.size())
 				currentLength = this.totalFrequentSeqs.get(currentIndexInFS).getItemNumInFreqSeq();
 			else
@@ -81,6 +49,46 @@ public class SingleSequenceMining {
 		}
 
 	}
+	public boolean isSubStringWithIdenticalSupport(Set<ArrayList<String>> existingFreqSeqs,
+												   ArrayList<String> curFreqSeq,FreqSequence curFSObj) {
+		for (ArrayList<String> existingFS : existingFreqSeqs) {
+			if (this.strArrayContains(existingFS, curFreqSeq) &&
+					this.FreqSeqsInMap.get(existingFS).getSupportNum() == curFSObj.getSupportNum()) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * check sub array
+	 *
+	 * @param strList1
+	 * @param strList2
+	 * @return
+	 */
+	public boolean strArrayContains(ArrayList<String> strList1, ArrayList<String> strList2) {
+		boolean isContained = false;
+
+		for (int i = 0; i < strList1.size() - strList2.size() + 1; i++) {
+			int k = i;
+			int j = 0;
+			while (k < strList1.size() && j < strList2.size()) {
+				if (strList1.get(k).equals(strList2.get(j))) {
+					k++;
+					j++;
+				} else {
+					k++;
+				}
+			}
+			if (j == strList2.size()) {
+				isContained = true;
+				break;
+			}
+		}
+		return isContained;
+	}
+
 
 	/**
 	 * This one is the current version that excludes more (results == long to
@@ -94,23 +102,26 @@ public class SingleSequenceMining {
 		long start = System.currentTimeMillis();
 		PrefixSpanToolWithFirstReplicate pst = new PrefixSpanToolWithFirstReplicate(inputString, localParameterSpace);
 		totalFrequentSeqs = pst.prefixSpanCalculate(globalFrequentElements);
-		for(FreqSequence curFS: totalFrequentSeqs){
-			System.out.println(curFS.getFreqSeqInString() + "\t" + curFS.getItemPairList().get(0).index.size());
-		}
+//		for(FreqSequence curFS: totalFrequentSeqs){
+//			System.out.println(curFS.getFreqSeqInString() + "\t" + curFS.getItemPairList().get(0).index.size());
+//		}
 		long end = System.currentTimeMillis()-start;
 		// then sort by length of the string
 		Collections.sort(totalFrequentSeqs);
 		// init support number and a list of boolean for each sequence
-
-		for (FreqSequence fs : totalFrequentSeqs) {
-			for (ResItemArrayPair resultItemPair : fs.getItemPairList()) {
-				for (Integer tempIndex : resultItemPair.index) {
-					this.available[tempIndex] = true;
-				}
-			}
-		}
 		this.updateSequenceLongToShort();
-		return FreqSeqsInMap.keySet();
+		HashSet<String> finalReturnFS = new HashSet<String>();
+		for(ArrayList<String> curFS: this.FreqSeqsInMap.keySet()){
+			String finalSeq = "";
+			for(String str: curFS){
+				finalSeq+= str+ ",";
+			}
+			if(finalSeq.length() > 0)
+				finalSeq = finalSeq.substring(0, finalSeq.length()-1);
+			finalReturnFS.add(finalSeq);
+			System.out.println(finalSeq + "\t" + this.FreqSeqsInMap.get(curFS).getItemPairList().get(0).index.size());
+		}
+		return finalReturnFS;
 	}
 
 	
@@ -143,7 +154,7 @@ public class SingleSequenceMining {
 		String[] globalFE = { "A", "B", "C", "D" };
 		HashSet<String> globalFrequentElements = new HashSet(Arrays.asList(globalFE));
 		LocalParameterSpace localParameterSpace = new LocalParameterSpace(localSupport, itemGap, seqGap);
-		SingleSequenceMining obj = new SingleSequenceMining(s, localParameterSpace);
+		ClosedSingleSequenceMining obj = new ClosedSingleSequenceMining(s, localParameterSpace);
 		obj.findFreqSeqInOneString(0, globalFrequentElements);
 	}
 }

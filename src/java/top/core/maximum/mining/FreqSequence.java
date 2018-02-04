@@ -1,4 +1,4 @@
-package top.core.datastructure;
+package top.core.maximum.mining;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -86,11 +86,11 @@ public class FreqSequence implements Comparable {
 
 	/**
 	 * copy a frequent sequence
-	 * 
+	 *
 	 * @return
 	 */
 	public FreqSequence copyFreqSeqence(ArrayList<Boolean> ifHasNewItemInPrevSeq,
-			ArrayList<Integer> whichOneUsedInPrevFS, ArrayList<Integer[]> lastIndexes) {
+                                        ArrayList<Integer> whichOneUsedInPrevFS, ArrayList<Integer[]> lastIndexes) {
 		FreqSequence copySeq = new FreqSequence();
 
 		for (int i = 0; i < this.itemPairList.size() - 1; i++) {

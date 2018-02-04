@@ -45,12 +45,12 @@ public class RemoveRepeat {
 				String outputValues = "";
 				int countRepeat = 0;
 				for (String sub : subStr) {
-					if (sub.equals(previousStr)) {
+					if (sub.split("\\|")[0].equals(previousStr)) {
 						countRepeat++;
 					} else {
 						outputValues += sub + ",";
 					}
-					previousStr = sub;
+					previousStr = sub.split("\\|")[0];
 				}
 				if (outputValues.length() > 0)
 					outputValues = outputValues.substring(0, outputValues.length() - 1);
