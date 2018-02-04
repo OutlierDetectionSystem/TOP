@@ -1,0 +1,32 @@
+Device id: 2016-06-08-:-420d4a72-c534-0500-2dd7-454034854a42
+ 48, 11, Frequency: 7
+Check Out	Home Appliances	
+
+Device id: 2016-06-09-:-420d4a72-c534-0500-2dd7-454034854a42
+ 42, 48, Frequency: 5
+Dry Grocery Products	Check Out	
+
+Device id: 2016-06-09-:-ea3af03f-0332-0500-c9cd-4440eb8c4a42
+ 32, 36, 35, 36, Frequency: 4
+Neighboring_Chilled Deli & Dairy	Corridor_Regional Products	Regional Products	Corridor_Regional Products	
+
+Device id: 2016-06-28-:-d2c06959-1933-0500-0ccf-4440e18c4a42
+ 1, 48, Frequency: 4
+Flower Shop	Check Out	
+
+Device id: 2016-07-14-:-6f5c84ff-1833-0500-a6ce-4440d98c4a42
+ 13, 21, Frequency: 4
+Books & Stationary	Cheese & Charcuterie Counter	
+
+Device id: 2016-09-15-:-82e0185b-1933-0500-5dce-4440dc8c4a42
+ 37, 38, 32, 38, Frequency: 4
+Snack Counter	Corridor_Snack Counter	Neighboring_Chilled Deli & Dairy	Corridor_Snack Counter	
+
+Device id: 2016-10-21-:-6f5c84ff-1833-0500-a6ce-4440d98c4a42
+ 13, 11, Frequency: 4
+Books & Stationary	Home Appliances	
+
+Device id: 2016-11-01-:-a7eeeb29-c228-0500-11c3-ae4014a64d42
+ 11, 10, 9, 7, Frequency: 4
+Home Appliances	Corridor_Home Appliances	Aisle_Household	Small Household Goods	
+
